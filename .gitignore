@@ -1,0 +1,30 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.so
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Environment
+.env
+.venv/
+env/
+venv/
+
+# MacOS system files
+.DS_Store
+
+# Logs
+*.log
+
+# VSCode and IDE configs
+.vscode/
+.idea/
+
+# Output folders
+build/
+dist/
+
+# GCP auth or credentials
+*.json
