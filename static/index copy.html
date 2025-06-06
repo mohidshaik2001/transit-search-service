@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Transit Vehicle Tracker (Delhi)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+   
+  />
+
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { height: 80vh; width: 100%; }
+    #controls {
+      padding: 8px;
+      background: #f5f5f5;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #results {
+      max-height: 15vh;
+      overflow-y: auto;
+      font-family: sans-serif;
+      font-size: 0.9rem;
+      padding: 8px;
+      background: #fff;
+      border-top: 1px solid #ddd;
+    }
+    input, button { padding: 4px 8px; margin-right: 4px; }
+  </style>
+</head>
+<body>
+
+  <div id="controls">
+    <label>
+      Route ID:
+      <input type="text" id="routeId" placeholder="e.g. 2" value="2" />
+    </label>
+    <button id="searchBtn">Search</button>
+    <span id="status" style="margin-left: 16px;"></span>
+  </div>
+
+  <div id="map"></div>
+
+  <div id="results"></div>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
+    
+  ></script>
+
+  <script>
+    // 1) Initialize the Leaflet map centered on Delhi (28.6139, 77.2090)
+    const map = L.map('map').setView([28.6139, 77.2090], 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    const markersLayer = L.featureGroup().addTo(map);
+
+    // 2) DOM elements
+    const routeInput = document.getElementById('routeId');
+    const searchBtn  = document.getElementById('searchBtn');
+    const statusSpan = document.getElementById('status');
+    const resultsDiv = document.getElementById('results');
+
+    // 3) Helper to format timestamp into local human‐readable
+    function formatTs(ts) {
+      const d = new Date(ts);
+      return d.toLocaleString('en-IN', {hour12: false});
+    }
+
+    // 4) Main search function
+    async function doSearch() {
+      const route = routeInput.value.trim();
+      if (!route) {
+        alert('Please enter a route ID (e.g. "2")');
+        return;
+      }
+      statusSpan.textContent = 'Loading…';
+      markersLayer.clearLayers();
+      resultsDiv.innerHTML = '';
+
+      const url = `https://transit-search-svc-832977709312.us-central1.run.app/search?route_id=${encodeURIComponent(route)}&size=50`;
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.detail || resp.statusText);
+        }
+        const data = await resp.json();
+        statusSpan.textContent = `Found ${data.total} results`;
+
+        if (data.total === 0) {
+          resultsDiv.innerHTML = `<p>No vehicles found for route ${route}.</p>`;
+          return;
+        }
+
+        // 5) Loop through hits and add markers & list
+        data.results.forEach(hit => {
+          const { vehicle_id, ping_ts, stop_id, schedu_ts, delay_sec, location, incident_count } = hit;
+          const { lat, lon } = location;
+
+          // Marker icon color based on delay: green (early/ontime) vs red (late)
+          const iconHtml = `<div style="
+            width: 20px; height: 20px; border-radius: 50%;
+            background: ${delay_sec > 0 ? 'red' : 'green'};
+            border: 2px solid #fff;
+            box-shadow: 0 0 3px rgba(0,0,0,0.5);
+          " title="${vehicle_id}"></div>`;
+
+          const icon = L.divIcon({
+            html: iconHtml,
+            className: ''
+          });
+
+          const marker = L.marker([lat, lon], { icon }).addTo(markersLayer);
+
+          const popupHtml = `
+            <strong>Vehicle:</strong> ${vehicle_id}<br/>
+            <strong>Ping:</strong> ${formatTs(ping_ts)}<br/>
+            <strong>Stop:</strong> ${stop_id}<br/>
+            <strong>Scheduled:</strong> ${formatTs(schedu_ts)}<br/>
+            <strong>Delay:</strong> ${delay_sec} sec<br/>
+            <strong>Incidents (10m):</strong> ${incident_count}
+          `;
+          marker.bindPopup(popupHtml);
+
+          // Also append to results list
+          const item = document.createElement('div');
+          item.style.padding = '4px 0';
+          item.innerHTML = `
+            <strong>${vehicle_id}</strong> @ ${formatTs(ping_ts)} —
+            Delay: ${delay_sec} sec —
+            Incidents: ${incident_count}
+          `;
+          resultsDiv.appendChild(item);
+        });
+
+        // 6) Adjust map bounds to fit all markers
+        const bounds = markersLayer.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds.pad(0.2));
+        }
+
+      } catch (err) {
+        statusSpan.textContent = 'Error';
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // 7) Hook up button
+    searchBtn.addEventListener('click', doSearch);
+
+    // Optional: trigger initial search on page load
+    window.addEventListener('load', () => {
+      doSearch();
+    });
+  </script>
+</body>
+</html>

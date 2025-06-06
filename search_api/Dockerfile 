@@ -1,0 +1,19 @@
+# 1. Use an official Python runtime as a parent image
+FROM --platform=linux/amd64 python:3.10-slim
+
+# 2. Set working directory
+WORKDIR /app
+
+# 3. Copy requirements and install
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 4. Copy application code
+COPY main.py .
+
+# 5. Expose port 8080 (Cloud Run default for HTTP)
+ENV PORT=8080
+EXPOSE 8080
+
+# 6. Run the app with Uvicorn
+CMD uvicorn main:app --host 0.0.0.0 --port 8080

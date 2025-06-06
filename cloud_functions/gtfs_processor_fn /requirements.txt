@@ -1,0 +1,4 @@
+flask
+pandas
+google-cloud-storage
+functions-framework
