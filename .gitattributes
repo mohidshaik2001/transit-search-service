@@ -1,0 +1,2 @@
+GTFS/*.csv filter=lfs diff=lfs merge=lfs -text
+GTFS/*.zip filter=lfs diff=lfs merge=lfs -text
